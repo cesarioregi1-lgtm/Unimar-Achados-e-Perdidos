@@ -196,7 +196,7 @@ if perfil_acesso == "📱 Tela do Passageiro":
     st.caption("Aponte a câmera do seu celular para o código abaixo para acessar o sistema.")
 
     # Substitua com o link real do seu app quando publicar
-    link_do_sistema = "http://localhost:8501"
+    link_do_sistema = "https://unimar-achados-e-perdidos-n7957sjr3scs9she4evspe.streamlit.app"
 
     qr_img = gerar_qrcode_bytes(link_do_sistema)
     st.image(qr_img, width=200)
