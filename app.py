@@ -1,34 +1,74 @@
 import base64
 import datetime
 from io import BytesIO
+import json
+import os
 import random
 import qrcode
 import streamlit as st
 
+# Arquivo JSON onde os dados ficam salvos permanentemente
+ARQUIVO_BANCO = "banco_dados.json"
+
+
 # ---------------------------------------------------------
-# 0. CONVERSÃO DA IMAGEM LOCAL PARA BASE64 (PLANO DE FUNDO UNIMAR)
+# FUNÇÕES DE PERSISTÊNCIA DE DADOS (BANCO LOCAL JSON)
+# ---------------------------------------------------------
+def carregar_dados():
+  """Lê os dados salvos no arquivo JSON ou cria o banco inicial se não existir."""
+  if not os.path.exists(ARQUIVO_BANCO):
+    dados_iniciais = {
+        "banco_objetos": [
+            {
+                "codigo": "UNI-8492",
+                "descricao": "Mochila preta Targus com notebook",
+                "linha": "Rota Industrial / Vale",
+                "localizacao": "Garagem Unimar",
+                "data_registro": "01/10/2026",
+                "status": "Disponível",
+                "foto_item": None,
+                "dados_agendamento": None,
+                "dados_entrega": None,
+            }
+        ],
+        "alertas_perda": [],
+    }
+    salvar_dados(dados_iniciais)
+    return dados_iniciais
+
+  try:
+    with open(ARQUIVO_BANCO, "r", encoding="utf-8") as f:
+      return json.load(f)
+  except Exception:
+    return {"banco_objetos": [], "alertas_perda": []}
+
+
+def salvar_dados(dados):
+  """Escreve as alterações diretamente no arquivo físico para persistência permanente."""
+  with open(ARQUIVO_BANCO, "w", encoding="utf-8") as f:
+    json.dump(dados, f, ensure_ascii=False, indent=4)
+
+
+# Carrega os dados atualizados do banco no estado da sessão
+dados_globais = carregar_dados()
+st.session_state.banco_objetos = dados_globais.get("banco_objetos", [])
+st.session_state.alertas_perda = dados_globais.get("alertas_perda", [])
+
+
+# ---------------------------------------------------------
+# CONFIGURAÇÃO VISUAL & ESTILO CSS RESPONSIVO
 # ---------------------------------------------------------
 def get_base64_of_bin_file(bin_file):
   try:
     with open(bin_file, "rb") as f:
-      data = f.read()
-    return base64.b64encode(data).decode()
+      return base64.b64encode(f.read()).decode()
   except Exception:
     return ""
 
 
-img_path = "1001217215.jpg"
-bin_str = get_base64_of_bin_file(img_path)
+bin_str = get_base64_of_bin_file("1001217215.jpg")
+bg_img_css = f'url("data:image/jpeg;base64,{bin_str}")' if bin_str else "none"
 
-bg_css = (
-    f'url("data:image/jpeg;base64,{bin_str}")'
-    if bin_str
-    else "linear-gradient(rgba(15, 23, 42, 0.90), rgba(15, 23, 42, 0.95))"
-)
-
-# ---------------------------------------------------------
-# 1. CONFIGURAÇÃO DA PÁGINA E ESTILIZAÇÃO CSS
-# ---------------------------------------------------------
 st.set_page_config(
     page_title="Unimar - Achados e Perdidos", page_icon="🚌", layout="wide"
 )
@@ -36,67 +76,37 @@ st.set_page_config(
 st.markdown(
     f"""
     <style>
-    .block-container {{
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        padding-left: 3rem;
-        padding-right: 3rem;
-    }}
+    .block-container {{ padding: 2rem 3rem; }}
+    
+    /* Fundo adaptável para qualquer dispositivo (PC, Celular, Tablet) */
     .stApp {{
-        background: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.92)), 
-                    {bg_css};
-        background-size: cover;
-        background-position: center;
+        background-image: linear-gradient(rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.90)), {bg_img_css};
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center center;
         background-attachment: fixed;
+        background-color: #0F172A;
+        min-height: 100vh;
     }}
+
+    @media (max-width: 768px) {{
+        .stApp {{
+            background-size: cover;
+            background-position: center top;
+        }}
+    }}
+
     html, body, [class*="css"], div, p, span, label {{
-        font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, 'Segoe UI', sans-serif !important;
-        color: #FFFFFF !important;
+        font-family: -apple-system, sans-serif !important; color: #FFFFFF !important;
     }}
-    h1, h2, h3, .stApp h1, .stApp h2, .stApp h3 {{
-        color: #4DA8DA !important;
-        font-weight: 700 !important;
-    }}
-    div[data-baseweb="input"] input, 
-    div[data-baseweb="textarea"] textarea, 
-    div[data-baseweb="select"] div,
-    input, textarea, select {{
-        color: #000000 !important;
-        background-color: #FFFFFF !important;
-        font-weight: 500 !important;
-    }}
-    input::placeholder, textarea::placeholder {{
-        color: #666666 !important;
-    }}
-    .stTextInput > label, .stTextArea > label, .stSelectbox > label, .stDateInput > label {{
-        color: #4DA8DA !important;
-        font-weight: 600 !important;
-    }}
+    h1, h2, h3, .stApp h1, .stApp h2, .stApp h3 {{ color: #4DA8DA !important; font-weight: 700 !important; }}
+    input, textarea, select, div[data-baseweb="select"] div {{ color: #000000 !important; background-color: #FFFFFF !important; }}
     div[data-testid="stColumn"] > div {{
-        background-color: rgba(30, 41, 59, 0.85);
-        border: 1px solid rgba(77, 168, 218, 0.3);
-        border-radius: 14px;
-        padding: 20px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        background-color: rgba(30, 41, 59, 0.85); border: 1px solid rgba(77, 168, 218, 0.3);
+        border-radius: 14px; padding: 20px; backdrop-filter: blur(10px);
     }}
-    div[data-testid="stColumn"] p, div[data-testid="stColumn"] span, div[data-testid="stColumn"] label {{
-        color: #FFFFFF !important;
-    }}
-    .stButton>button {{
-        border-radius: 8px;
-        font-weight: 600;
-        background-color: #1D61B0 !important;
-        color: #FFFFFF !important;
-        border: none !important;
-    }}
-    section[data-testid="stSidebar"] {{
-        background-color: rgba(15, 23, 42, 0.98) !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
-    }}
-    section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] p {{
-        color: #FFFFFF !important;
-    }}
+    .stButton>button {{ background-color: #1D61B0 !important; color: #FFFFFF !important; border-radius: 8px; font-weight: 600; }}
+    section[data-testid="stSidebar"] {{ background-color: rgba(15, 23, 42, 0.98) !important; }}
     </style>
 """,
     unsafe_allow_html=True,
@@ -106,590 +116,332 @@ st.markdown(
 def render_logo_header():
   st.markdown(
       """
-        <div style="text-align: center; margin-top: 5px; margin-bottom: 20px;">
-            <h1 style="color: #4DA8DA; font-size: 2.5rem; margin-bottom: 0;">🚌 UNIMAR</h1>
-            <p style="color: #94A3B8; font-size: 1.1rem; letter-spacing: 2px; margin-top: 0;">SISTEMA DE ACHADOS E PERDIDOS</p>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="color: #4DA8DA; font-size: 2.5rem; margin: 0;">🚌 UNIMAR</h1>
+            <p style="color: #94A3B8; font-size: 1.1rem; letter-spacing: 2px; margin: 0;">SISTEMA DE ACHADOS E PERDIDOS</p>
         </div>
-        """,
+    """,
       unsafe_allow_html=True,
   )
 
 
-def gerar_qrcode_bytes(texto):
+def gerar_qrcode(texto):
   qr = qrcode.QRCode(version=1, box_size=10, border=2)
   qr.add_data(texto)
   qr.make(fit=True)
   img = qr.make_image(fill_color="black", back_color="white")
-  buffered = BytesIO()
-  img.save(buffered, format="PNG")
-  return buffered.getvalue()
+  buf = BytesIO()
+  img.save(buf, format="PNG")
+  return buf.getvalue()
 
 
 # ---------------------------------------------------------
-# 2. BASE DE DADOS (SESSION STATE) & CONTROLE DE AUTENTICAÇÃO
+# NAVEGAÇÃO LATERAL E SEGURANÇA
 # ---------------------------------------------------------
-if "banco_objetos" not in st.session_state:
-  st.session_state.banco_objetos = [
-      {
-          "codigo": "UNI-8492",
-          "descricao": "Mochila preta Targus com notebook",
-          "linha": "Rota Industrial / Vale",
-          "localizacao": "Garagem Unimar",
-          "data_registro": "01/10/2026",
-          "status": "Disponível",
-          "foto_item": None,
-          "dados_agendamento": None,
-          "dados_entrega": None,
-      }
-  ]
-
-if "alertas_perda" not in st.session_state:
-  st.session_state.alertas_perda = []
-
-if "solicitacoes_resgate" not in st.session_state:
-  st.session_state.solicitacoes_resgate = []
-
 if "admin_logado" not in st.session_state:
   st.session_state.admin_logado = False
 
-# ---------------------------------------------------------
-# 3. NAVEGAÇÃO LATERAL
-# ---------------------------------------------------------
 st.sidebar.markdown("### 🚌 Unimar Transportes")
 perfil_acesso = st.sidebar.radio(
-    "Selecione o Modo de Visualização:",
-    ["📱 Tela do Passageiro", "⚙️ Painel do Administrador"],
-    key="perfil_acesso_radio",
+    "Modo de Visualização:", ["📱 Tela do Passageiro", "⚙️ Painel do Administrador"]
 )
-
-st.sidebar.markdown("---")
 
 if perfil_acesso == "⚙️ Painel do Administrador":
   if not st.session_state.admin_logado:
-    st.sidebar.markdown("### 🔐 Acesso Restrito")
-    senha_digitada = st.sidebar.text_input(
-        "Senha do Administrador:", type="password"
-    )
+    st.sidebar.markdown("---")
+    senha = st.sidebar.text_input("Senha do Administrador:", type="password")
     if st.sidebar.button("Entrar no Painel"):
-      if senha_digitada == "unimar2026":
+      if senha == "unimar2026":
         st.session_state.admin_logado = True
-        st.success("Login efetuado com sucesso!")
         st.rerun()
       else:
-        st.error("Senha incorreta!")
+        st.sidebar.error("Senha incorreta!")
   else:
-    st.sidebar.success("🟢 Sessão Administrativa Ativa")
-    if st.sidebar.button("🚪 Logout (Sair)"):
+    if st.sidebar.button("🚪 Sair do Painel"):
       st.session_state.admin_logado = False
       st.rerun()
-
-st.sidebar.markdown("---")
-st.sidebar.caption("📌 *Projeto de Extensão - Achados e Perdidos*")
 
 # =========================================================
 # TELA DO PASSAGEIRO
 # =========================================================
 if perfil_acesso == "📱 Tela do Passageiro":
   render_logo_header()
-
   st.write(
       "Esqueceu algum pertence nos veículos da frota? Pesquise abaixo ou"
-      " cadastre uma solicitação de busca."
+      " cadastre uma solicitação."
   )
-  st.markdown("---")
-
   col_busca, col_solicitar = st.columns([2, 1])
 
   with col_busca:
     st.markdown("### 🔎 Buscar Item Encontrado")
-    termo_busca = st.text_input(
-        "Digite o nome do objeto, linha do ônibus ou palavra-chave:",
-        placeholder="Ex: Mochila, Chave, Garrafa, Linha Vale...",
+    termo = st.text_input(
+        "Digite o objeto, linha do ônibus ou código:",
+        placeholder="Ex: Mochila, Celular, UNI-8492...",
     )
 
-    # GARANTE QUE QUALQUER ITEM COM STATUS DISPONÍVEL APAREÇA PARA O PASSAGEIRO
-    itens_disponiveis = [
+    itens_visiveis = [
         i
         for i in st.session_state.banco_objetos
         if i["status"] in ["Disponível", "Agendado"]
     ]
 
-    if termo_busca:
-      resultados = [
+    if termo:
+      itens_visiveis = [
           i
-          for i in itens_disponiveis
-          if termo_busca.lower() in i["descricao"].lower()
-          or termo_busca.lower() in i.get("linha", "").lower()
-          or termo_busca.lower() in i["codigo"].lower()
+          for i in itens_visiveis
+          if termo.lower() in i["descricao"].lower()
+          or termo.lower() in i.get("linha", "").lower()
+          or termo.lower() in i["codigo"].lower()
       ]
-    else:
-      resultados = itens_disponiveis
 
-    st.markdown(f"*Itens Encontrados e Guardados ({len(resultados)}):*")
+    st.markdown(f"*Itens Encontrados e Guardados ({len(itens_visiveis)}):*")
 
-    if not resultados:
-      st.info("Nenhum pertence encontrado com a palavra pesquisada.")
-    else:
-      for item in resultados:
-        tag_expander = f"📌 {item['codigo']} — {item['descricao']}"
+    for item in itens_visiveis:
+      label_item = f"📌 {item['codigo']} — {item['descricao']}"
+      if item["status"] == "Agendado":
+        label_item += " (🟡 Agendado)"
+
+      with st.expander(label_item):
+        st.write(f"🚌 **Linha:** {item.get('linha', 'Geral')}")
+        st.write(f"📍 **Local de Retirada:** {item['localizacao']}")
+        st.write(f"📅 **Data de Entrada:** {item['data_registro']}")
+
+        if item.get("foto_item"):
+          st.image(
+              item["foto_item"],
+              caption="Foto do Objeto",
+              use_container_width=True,
+          )
+
         if item["status"] == "Agendado":
-          tag_expander += " (🟡 Agendado para Retirada)"
+          st.warning("🟡 Este item já possui um agendamento de retirada.")
+          if item.get("dados_agendamento"):
+            st.write(f"👤 **Solicitante:** {item['dados_agendamento']['nome']}")
+        else:
+          with st.form(key=f"form_{item['codigo']}"):
+            nome_p = st.text_input("Seu Nome Completo:")
+            contato_p = st.text_input("Telefone/WhatsApp:")
+            detalhe_p = st.text_area("Detalhes do pertence para confirmação:")
 
-        with st.expander(tag_expander):
-          st.write(f"🚌 *Linha/Rota:* {item.get('linha', 'Frota Geral')}")
-          st.write(f"📍 *Local de Retirada:* {item['localizacao']}")
-          st.write(f"📅 *Data de Entrada:* {item.get('data_registro', 'Recente')}")
-
-          if item.get("foto_item"):
-            st.image(
-                item["foto_item"],
-                caption="Foto do Objeto Encontrado",
-                use_container_width=True,
-            )
-
-          st.markdown("---")
-
-          if item["status"] == "Agendado":
-            st.warning(
-                "🟡 Este item já possui um agendamento de retirada em"
-                " andamento."
-            )
-            if item.get("dados_agendamento"):
-              st.write(f"👤 *Solicitante:* {item['dados_agendamento']['nome']}")
-          else:
-            st.write(
-                "*É o seu pertence?* Solicite a retirada preenchendo os dados"
-                " abaixo:"
-            )
-
-            with st.form(key=f"form_resgate_{item['codigo']}"):
-              nome_p = st.text_input(
-                  "Seu Nome Completo:", key=f"nome_{item['codigo']}"
-              )
-              contato_p = st.text_input(
-                  "Telefone/WhatsApp para contato:", key=f"tel_{item['codigo']}"
-              )
-              detalhe_p = st.text_area(
-                  "Descreva detalhes/marcas do item para confirmação:",
-                  key=f"det_{item['codigo']}",
-              )
-
-              btn_solicitar = st.form_submit_button(
-                  "📩 Solicitar Agendamento de Retirada"
-              )
-
-              if btn_solicitar:
-                if not nome_p or not contato_p:
-                  st.error(
-                      "Por favor, preencha seu nome e telefone de contato."
-                  )
-                else:
-                  dados_solicitacao = {
-                      "nome": nome_p,
-                      "contato": contato_p,
-                      "detalhes": detalhe_p,
-                      "data_agendamento": datetime.datetime.now().strftime(
-                          "%d/%m/%Y %H:%M"
-                      ),
-                  }
-
-                  for obj in st.session_state.banco_objetos:
-                    if obj["codigo"] == item["codigo"]:
-                      obj["status"] = "Agendado"
-                      obj["dados_agendamento"] = dados_solicitacao
-                      break
-
-                  st.session_state.solicitacoes_resgate.append({
-                      "codigo_item": item["codigo"],
-                      "descricao_item": item["descricao"],
-                      **dados_solicitacao,
-                  })
-
-                  qr_bytes = gerar_qrcode_bytes(
-                      f"RETIRADA-{item['codigo']}-{nome_p}"
-                  )
-                  st.success(
-                      f"Solicitação enviada com sucesso! O item {item['codigo']}"
-                      " foi marcado como Agendado no painel da Unimar."
-                  )
-                  st.image(
-                      qr_bytes,
-                      caption=(
-                          "Apresente este QR Code no local de retirada"
-                          f" ({item['localizacao']})"
-                      ),
-                      width=200,
-                  )
-                  st.rerun()
+            if st.form_submit_button("📩 Solicitar Retirada"):
+              if nome_p and contato_p:
+                item["status"] = "Agendado"
+                item["dados_agendamento"] = {
+                    "nome": nome_p,
+                    "contato": contato_p,
+                    "detalhes": detalhe_p,
+                    "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+                }
+                salvar_dados({
+                    "banco_objetos": st.session_state.banco_objetos,
+                    "alertas_perda": st.session_state.alertas_perda,
+                })
+                st.success(
+                    "Agendamento solicitado e salvo no sistema Unimar!"
+                )
+                st.image(
+                    gerar_qrcode(f"RETIRADA-{item['codigo']}-{nome_p}"),
+                    caption="Apresente este QR Code no local de retirada",
+                    width=180,
+                )
+                st.rerun()
+              else:
+                st.error("Preencha nome e telefone de contato.")
 
   with col_solicitar:
     st.markdown("### 📢 Não encontrou seu pertence?")
-    st.caption(
-        "Deixe um alerta registrado para que a equipe te avise caso o objeto"
-        " seja encontrado no ônibus."
-    )
+    with st.form(key="form_alerta"):
+      obj_p = st.text_input("O que você perdeu?")
+      linha_p = st.text_input("Linha/Horário do ônibus:")
+      data_p = st.date_input("Data do ocorrido:", datetime.date.today())
+      nome_c = st.text_input("Seu Nome:")
+      tel_c = st.text_input("Seu Telefone/WhatsApp:")
 
-    with st.form(key="form_alerta_perda"):
-      item_perdido = st.text_input(
-          "O que você perdeu?", placeholder="Ex: Óculos de grau com armação preta"
-      )
-      linha_onibus = st.text_input("Linha ou horário do ônibus (se souber):")
-      data_perda = st.date_input("Data do ocorrido:", datetime.date.today())
-      nome_contato = st.text_input("Seu Nome:")
-      tel_contato = st.text_input("Seu Telefone / WhatsApp:")
-
-      sub_alerta = st.form_submit_button("🚀 Cadastrar Alerta de Perda")
-
-      if sub_alerta:
-        if not item_perdido or not tel_contato:
-          st.error("Preencha ao menos o que foi perdido e o telefone de contato.")
-        else:
-          novo_alerta = {
+      if st.form_submit_button("🚀 Cadastrar Alerta de Perda"):
+        if obj_p and tel_c:
+          st.session_state.alertas_perda.append({
               "id": f"ALT-{random.randint(1000, 9999)}",
-              "item_perdido": item_perdido,
-              "linha_onibus": linha_onibus if linha_onibus else "Não informada",
-              "data_perda": data_perda.strftime("%d/%m/%Y"),
-              "nome_contato": nome_contato,
-              "tel_contato": tel_contato,
-              "data_registro": datetime.datetime.now().strftime(
-                  "%d/%m/%Y %H:%M"
-              ),
-          }
-          st.session_state.alertas_perda.append(novo_alerta)
-          st.success("Alerta registrado com sucesso!")
+              "item": obj_p,
+              "linha": linha_p or "Não informada",
+              "data": data_p.strftime("%d/%m/%Y"),
+              "nome": nome_c,
+              "tel": tel_c,
+          })
+          salvar_dados({
+              "banco_objetos": st.session_state.banco_objetos,
+              "alertas_perda": st.session_state.alertas_perda,
+          })
+          st.success("Alerta registrado permanentemente no sistema!")
           st.rerun()
 
 # =========================================================
-# TELA DO ADMINISTRADOR
+# TELA DO ADMINISTRADOR (VISÃO RESTRITA)
 # =========================================================
 else:
   render_logo_header()
 
   if not st.session_state.admin_logado:
     st.warning(
-        "🔒 *Acesso Restrito:* Insira sua senha de administrador na barra"
-        " lateral esquerda."
+        "🔒 **Acesso Restrito:** Digite a senha na barra lateral para acessar o"
+        " painel."
     )
   else:
     st.title("⚙️ Painel de Gestão - Equipe Unimar")
-    st.write(
-        "Plataforma administrativa de controle de achados e perdidos com"
-        " segurança e QR Code."
-    )
-    st.markdown("---")
-
     col1, col2, col3 = st.columns(3)
 
-    # 1. ITENS CADASTRADOS E ALERTAS DE PASSAGEIROS
+    # COLUNA 1: CONSULTA DE REGISTROS
     with col1:
       st.markdown("### 📦 1. Registros e Solicitações")
-      st.caption("Visualização, edição, exclusão e alertas de passageiros.")
-
-      aba_selecionada = st.radio(
-          "Exibir lista de:",
-          ["Aguardando Retirada", "Itens Devolvidos", "📢 Alertas de Perda"],
-          key="radio_admin_itens",
+      aba = st.radio(
+          "Exibir:", ["Aguardando Retirada", "Itens Devolvidos", "Alertas"]
       )
 
-      st.markdown("---")
-
-      if aba_selecionada == "Aguardando Retirada":
+      if aba == "Aguardando Retirada":
         pendentes = [
             i
             for i in st.session_state.banco_objetos
             if i["status"] in ["Disponível", "Agendado"]
         ]
-        st.write(f"*Total pendente:* {len(pendentes)}")
-        for item in pendentes:
-          tag_status = (
-              "🟡 Agendado para Retirada"
-              if item["status"] == "Agendado"
-              else "🟢 Disponível"
-          )
-          with st.expander(f"📌 {item['codigo']} - {item['descricao']}"):
-            st.write(f"*Local:* {item['localizacao']}")
-            st.write(f"*Status:* {tag_status}")
+        st.write(f"**Total:** {len(pendentes)}")
 
-            if item["status"] == "Agendado" and item.get("dados_agendamento"):
-              st.markdown("---")
-              st.write("👤 *Informações do Agendamento pelo Passageiro:*")
+        for item in pendentes:
+          with st.expander(f"📌 {item['codigo']} - {item['descricao']}"):
+            st.write(f"Local: {item['localizacao']}")
+            st.write(f"Status: {item['status']}")
+
+            if item.get("dados_agendamento"):
               ag = item["dados_agendamento"]
-              st.write(f"• **Nome:** {ag.get('nome')}")
-              st.write(f"• **Contato/WhatsApp:** {ag.get('contato')}")
-              st.write(
-                  f"• **Detalhes do Item:** {ag.get('detalhes', 'Não informado')}"
+              st.info(
+                  f"👤 **Solicitante:** {ag['nome']}\n📞 **Contato:**"
+                  f" {ag['contato']}\n📝 **Detalhes:**"
+                  f" {ag.get('detalhes', 'N/A')}\n📅 **Data:** {ag.get('data')}"
               )
-              st.write(f"• **Data/Hora Solicitado:** {ag.get('data_agendamento')}")
-              st.markdown("---")
 
             if item.get("foto_item"):
-              st.image(
-                  item["foto_item"],
-                  caption="Foto Registrada",
-                  use_container_width=True,
-              )
+              st.image(item["foto_item"], use_container_width=True)
 
-            qr_bytes = gerar_qrcode_bytes(f"VALIDAR-{item['codigo']}")
-            st.image(qr_bytes, caption="QR Code do Item", width=150)
-
-            with st.form(key=f"form_edit_{item['codigo']}"):
-              nova_desc = st.text_input(
-                  "Editar Descrição:",
-                  value=item["descricao"],
-                  key=f"desc_ed_{item['codigo']}",
-              )
-              novo_local = st.selectbox(
-                  "Editar Local:",
-                  ["Vila das Contratadas / Vale", "Garagem Unimar"],
-                  index=(
-                      0
-                      if item["localizacao"] == "Vila das Contratadas / Vale"
-                      else 1
-                  ),
-                  key=f"loc_ed_{item['codigo']}",
-              )
-              btn_salvar_edicao = st.form_submit_button("💾 Salvar Alterações")
-
-              if btn_salvar_edicao:
-                item["descricao"] = nova_desc
-                item["localizacao"] = novo_local
-                st.success("Registro atualizado com sucesso!")
-                st.rerun()
-
-            if st.button("🗑️ Excluir Registro", key=f"del_{item['codigo']}"):
-              st.session_state.banco_objetos = [
-                  i
-                  for i in st.session_state.banco_objetos
-                  if i["codigo"] != item["codigo"]
-              ]
-              st.success(f"Item {item['codigo']} excluído!")
+            if st.button("🗑️ Excluir", key=f"del_{item['codigo']}"):
+              st.session_state.banco_objetos.remove(item)
+              salvar_dados({
+                  "banco_objetos": st.session_state.banco_objetos,
+                  "alertas_perda": st.session_state.alertas_perda,
+              })
               st.rerun()
 
-      elif aba_selecionada == "Itens Devolvidos":
+      elif aba == "Itens Devolvidos":
         entregues = [
             i for i in st.session_state.banco_objetos if i["status"] == "Entregue"
         ]
-        st.write(f"*Total entregue:* {len(entregues)}")
         for item in entregues:
           with st.expander(f"✅ {item['codigo']} - {item['descricao']}"):
-            st.write(f"*Local:* {item['localizacao']}")
-            if item.get("foto_item"):
-              st.image(
-                  item["foto_item"],
-                  caption="Foto Registrada",
-                  use_container_width=True,
-              )
-            if item["dados_entrega"]:
-              st.write(f"*Recebedor:* {item['dados_entrega']['nome']}")
-              st.write(f"*Data:* {item['dados_entrega']['data_hora']}")
+            st.write(f"Recebedor: {item['dados_entrega']['nome']}")
+            st.write(f"Documento: {item['dados_entrega']['documento']}")
+            st.write(f"Data/Hora: {item['dados_entrega']['data']}")
 
       else:
-        alertas = st.session_state.alertas_perda
-        st.write(f"*Total de Alertas Registrados:* {len(alertas)}")
-        if not alertas:
-          st.info("Nenhum alerta de perda pendente.")
-        else:
-          for idx, alt in enumerate(alertas):
-            with st.expander(f"⚠️ {alt['id']} — {alt['item_perdido']}"):
-              st.write(f"🚌 *Linha/Horário:* {alt['linha_onibus']}")
-              st.write(f"📅 *Data do Ocorrido:* {alt['data_perda']}")
-              st.write(f"👤 *Solicitante:* {alt['nome_contato']}")
-              st.write(f"📞 *Contato/WhatsApp:* {alt['tel_contato']}")
-              if st.button(
-                  "🗑️ Excluir Alerta", key=f"del_alt_{alt['id']}_{idx}"
-              ):
-                st.session_state.alertas_perda.pop(idx)
-                st.rerun()
+        for idx, alt in enumerate(st.session_state.alertas_perda):
+          with st.expander(f"⚠️ {alt['id']} - {alt['item']}"):
+            st.write(
+                f"Contato: {alt['nome']} ({alt['tel']})\nLinha: {alt['linha']}"
+            )
+            if st.button("🗑️ Remover Alerta", key=f"del_alt_{idx}"):
+              st.session_state.alertas_perda.pop(idx)
+              salvar_dados({
+                  "banco_objetos": st.session_state.banco_objetos,
+                  "alertas_perda": st.session_state.alertas_perda,
+              })
+              st.rerun()
 
-    # 2. CADASTRAR NOVO ITEM (COM SUPORTE A INFINITOS ITENS)
+    # COLUNA 2: CADASTRAR NOVO ITEM (ENTRADA DO OBJETO)
     with col2:
       st.markdown("### ➕ 2. Cadastrar Novo Item")
-      st.caption("Registro rápido com código único garantido.")
-
-      desc_novo = st.text_input(
-          "Descrição do Objeto Encontrado:",
-          placeholder="Ex: Carteira de couro preta",
-          key="input_desc_novo_item",
-      )
+      desc_novo = st.text_input("Descrição do Objeto (Obrigatório):")
       linha_nova = st.text_input(
-          "Linha/Ônibus onde foi encontrado:",
-          placeholder="Ex: Rota Industrial",
-          key="input_linha_novo_item",
+          "Linha/Ônibus onde foi encontrado (Opcional):"
       )
-
       local_guarda = st.radio(
-          "Local de Guarda:",
-          ["Vila das Contratadas / Vale", "Garagem Unimar"],
-          key="radio_local_admin_novo",
+          "Local de Guarda:", ["Vila das Contratadas / Vale", "Garagem Unimar"]
       )
+      foto_captura = st.camera_input("Fotografar Item (Opcional)")
 
-      st.markdown("---")
-
-      # Gerenciamento fluido da câmera de cadastro
-      if "foto_item_temp" not in st.session_state:
-        st.session_state.foto_item_temp = None
-
-      captura = st.camera_input(
-          "Fotografar Item (Opcional)", key="camera_item_input_principal"
-      )
-
-      if captura:
-        st.session_state.foto_item_temp = captura.getvalue()
-        st.success("Foto capturada com sucesso!")
-
-      if st.session_state.foto_item_temp is not None:
-        if st.button("🗑️ Remover Foto Anexada", key="clear_img_item_btn"):
-          st.session_state.foto_item_temp = None
-          st.rerun()
-
-      st.markdown("---")
+      foto_b64 = None
+      if foto_captura:
+        foto_b64 = f"data:image/jpeg;base64,{base64.b64encode(foto_captura.getvalue()).decode()}"
 
       if st.button(
-          "✅ Finalizar Cadastro e Gerar Matrícula",
+          "✅ Cadastrar Objeto no Sistema",
           type="primary",
           use_container_width=True,
       ):
-        if not desc_novo.strip():
-          st.error("Por favor, preencha a descrição do item.")
-        else:
-          codigos_existentes = [
-              i["codigo"] for i in st.session_state.banco_objetos
-          ]
-          while True:
-            codigo_gerado = f"UNI-{random.randint(1000, 9999)}"
-            if codigo_gerado not in codigos_existentes:
-              break
-
-          data_hoje = datetime.datetime.now().strftime("%d/%m/%Y")
-
-          novo_registro = {
-              "codigo": codigo_gerado,
+        if desc_novo.strip():
+          cod_novo = f"UNI-{random.randint(1000, 9999)}"
+          novo_item = {
+              "codigo": cod_novo,
               "descricao": desc_novo,
-              "linha": linha_nova if linha_nova else "Frota Geral",
+              "linha": linha_nova or "Frota Geral",
               "localizacao": local_guarda,
-              "data_registro": data_hoje,
+              "data_registro": datetime.datetime.now().strftime("%d/%m/%Y"),
               "status": "Disponível",
-              "foto_item": st.session_state.foto_item_temp,
+              "foto_item": foto_b64,
               "dados_agendamento": None,
               "dados_entrega": None,
           }
-
-          # Adiciona permanentemente ao banco de dados da sessão para exibição infinita
-          st.session_state.banco_objetos.append(novo_registro)
-          st.success(f"Item cadastrado com sucesso! Código: *{codigo_gerado}*")
-
-          # Reseta a foto temporária para o próximo cadastro
-          st.session_state.foto_item_temp = None
+          st.session_state.banco_objetos.append(novo_item)
+          salvar_dados({
+              "banco_objetos": st.session_state.banco_objetos,
+              "alertas_perda": st.session_state.alertas_perda,
+          })
+          st.success(f"Item {cod_novo} salvo permanentemente!")
           st.rerun()
+        else:
+          st.error("Preencha a descrição do item.")
 
-    # 3. ANÁLISE DE DEVOLUÇÕES & QR CODE
+    # COLUNA 3: ANÁLISE E BAIXA DE DEVOLUÇÕES
     with col3:
       st.markdown("### 📋 3. Análise de Devoluções")
-      st.caption("Validação por QR Code e baixa final de entrega.")
+      pendentes = [
+          i
+          for i in st.session_state.banco_objetos
+          if i["status"] in ["Disponível", "Agendado"]
+      ]
 
-      opcao_devolucao = st.radio(
-          "Selecione a Ação:",
-          ["Informações do Recebedor", "Fotografar Recebedor/Documento"],
-          key="radio_devolucao_admin",
-      )
+      if pendentes:
+        item_sel = st.selectbox(
+            "Selecione o Item para Baixa:",
+            [f"{i['codigo']} - {i['descricao']}" for i in pendentes],
+        )
+        cod_sel = item_sel.split(" - ")[0]
+        obj_sel = next(i for i in pendentes if i["codigo"] == cod_sel)
 
-      st.markdown("---")
+        nome_preen = (
+            obj_sel["dados_agendamento"]["nome"]
+            if obj_sel.get("dados_agendamento")
+            else ""
+        )
+        nome_rec = st.text_input("Nome do Recebedor:", value=nome_preen)
+        doc_rec = st.text_input("Documento (CPF/RG):")
 
-      if opcao_devolucao == "Informações do Recebedor":
-        st.write("*Galeria de Comprovantes Registrados:*")
-        entregues = [
-            i for i in st.session_state.banco_objetos if i["status"] == "Entregue"
-        ]
-
-        if not entregues:
-          st.info("Nenhum histórico de recebedor salvo até o momento.")
-        else:
-          for item in entregues:
-            dados = item.get("dados_entrega", {})
-            with st.expander(
-                f"👤 {dados.get('nome', 'Sem nome')} ({item['codigo']})"
-            ):
-              st.write(f"*Item:* {item['descricao']}")
-              st.write(f"*Documento:* {dados.get('documento', 'N/A')}")
-              st.write(f"*Data/Hora:* {dados.get('data_hora', 'N/A')}")
-
-              if dados.get("foto_recebedor"):
-                st.image(
-                    dados["foto_recebedor"],
-                    caption="Comprovante / Rosto do Recebedor",
-                    use_container_width=True,
-                )
-
+        if st.button(
+            "✅ Confirmar Entrega do Item",
+            type="primary",
+            use_container_width=True,
+        ):
+          if nome_rec and doc_rec:
+            obj_sel["status"] = "Entregue"
+            obj_sel["dados_entrega"] = {
+                "nome": nome_rec,
+                "documento": doc_rec,
+                "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+            }
+            salvar_dados({
+                "banco_objetos": st.session_state.banco_objetos,
+                "alertas_perda": st.session_state.alertas_perda,
+            })
+            st.success(
+                f"Item {cod_sel} baixado e arquivado como Devolvido!"
+            )
+            st.rerun()
+          else:
+            st.error("Preencha nome e documento do recebedor.")
       else:
-        st.write("*Dar Baixa / Registrar Entrega:*")
-        pendentes = [
-            i
-            for i in st.session_state.banco_objetos
-            if i["status"] in ["Disponível", "Agendado"]
-        ]
-
-        if not pendentes:
-          st.info("Nenhum item pendente para entrega no momento.")
-        else:
-          item_selecionado = st.selectbox(
-              "Selecione o Item para Entrega:",
-              [f"{i['codigo']} - {i['descricao']}" for i in pendentes],
-              key="select_item_baixa",
-          )
-          codigo_item = item_selecionado.split(" - ")[0]
-
-          item_obj = next(
-              (i for i in pendentes if i["codigo"] == codigo_item), None
-          )
-
-          nome_preenchido = (
-              item_obj["dados_agendamento"]["nome"]
-              if (item_obj and item_obj.get("dados_agendamento"))
-              else ""
-          )
-
-          nome_rec = st.text_input(
-              "Nome Completo do Passageiro Recebedor:",
-              value=nome_preenchido,
-              key="input_nome_rec",
-          )
-          doc_rec = st.text_input(
-              "Documento (CPF / RG):", key="input_doc_rec"
-          )
-
-          if "foto_dev_temp" not in st.session_state:
-            st.session_state.foto_dev_temp = None
-
-          captura_dev = st.camera_input(
-              "Capturar Rosto / Documento (Opcional)",
-              key="camera_dev_input_principal",
-          )
-
-          if captura_dev:
-            st.session_state.foto_dev_temp = captura_dev.getvalue()
-            st.success("Foto armazenada!")
-
-          st.markdown("---")
-          if st.button(
-              "✅ Confirmar Devolução do Item",
-              type="primary",
-              use_container_width=True,
-          ):
-            if not nome_rec or not doc_rec:
-              st.error("Preencha o nome e o documento do recebedor.")
-            elif item_obj:
-              data_hora_atual = datetime.datetime.now().strftime(
-                  "%d/%m/%Y %H:%M"
-              )
-              item_obj["status"] = "Entregue"
-              item_obj["dados_entrega"] = {
-                  "nome": nome_rec,
-                  "documento": doc_rec,
-                  "data_hora": data_hora_atual,
-                  "foto_recebedor": st.session_state.foto_dev_temp,
-              }
-              st.success(
-                  f"Item *{codigo_item}* marcado como Entregue com sucesso!"
-              )
-              st.session_state.foto_dev_temp = None
-              st.rerun()
+        st.info("Nenhum item pendente para entrega.")
