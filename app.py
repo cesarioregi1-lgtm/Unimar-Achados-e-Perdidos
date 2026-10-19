@@ -154,12 +154,6 @@ if "ativar_camera_cadastro" not in st.session_state:
 if "ativar_camera_baixa" not in st.session_state:
   st.session_state.ativar_camera_baixa = False
 
-# Chaves de controle para limpar campos de cadastro
-if "input_desc_novo" not in st.session_state:
-  st.session_state.input_desc_novo = ""
-if "input_linha_nova" not in st.session_state:
-  st.session_state.input_linha_nova = ""
-
 st.sidebar.markdown("### 🚌 Unimar Transportes")
 perfil_acesso = st.sidebar.radio(
     "Modo de Visualização:", ["📱 Tela do Passageiro", "⚙️ Painel do Administrador"]
@@ -392,7 +386,7 @@ else:
               st.toast("Alerta removido!", icon="🗑️")
               st.rerun()
 
-    # COLUNA 2: CADASTRAR NOVO ITEM (COM LIMPEZA AUTOMÁTICA DE CAMPOS)
+    # COLUNA 2: CADASTRAR NOVO ITEM (COM LIMPEZA SEGURA DOS CAMPOS)
     with col2:
       st.markdown("### ➕ 2. Cadastrar Novo Item")
       
@@ -454,9 +448,9 @@ else:
               "alertas_perda": st.session_state.alertas_perda,
           })
 
-          # Limpa os campos de digitação e desativa a câmera para o próximo cadastro
-          st.session_state.input_desc_novo = ""
-          st.session_state.input_linha_nova = ""
+          # Limpa os campos através dos widgets do session_state sem causar erro
+          st.session_state["input_desc_novo"] = ""
+          st.session_state["input_linha_nova"] = ""
           st.session_state.ativar_camera_cadastro = False
           
           # Mensagem temporária que surge e desaparece automaticamente
