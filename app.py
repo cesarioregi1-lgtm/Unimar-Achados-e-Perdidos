@@ -101,22 +101,33 @@ st.markdown(
     }}
     h1, h2, h3, .stApp h1, .stApp h2, .stApp h3 {{ color: #4DA8DA !important; font-weight: 700 !important; }}
     
-    /* Textos digitados em AZUL bem vivos nas caixas de entrada e botões */
+    /* Textos digitados em AZUL nas caixas de entrada e selects */
     input, textarea, select, div[data-baseweb="select"] span, div[data-baseweb="select"] div {{ 
         color: #1D61B0 !important; 
         background-color: #FFFFFF !important; 
         font-weight: 600 !important;
     }}
     
-    /* Correção do Pop-up do Calendário para ficar claro e legível */
-    div[data-baseweb="calendar"], div[data-baseweb="popover"], div[role="dialog"] {{
-        background-color: #FFFFFF !important;
-        border-radius: 10px;
-        padding: 10px;
-    }}
-    div[data-baseweb="calendar"] button, div[data-baseweb="calendar"] span, div[data-baseweb="calendar"] div {{
+    /* Correção completa dos dias e textos do Pop-up do Calendário */
+    div[data-baseweb="calendar"], 
+    div[data-baseweb="calendar"] *, 
+    div[data-baseweb="popover"] *, 
+    div[role="dialog"] * {{
         color: #0F172A !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
+    }}
+    
+    div[data-baseweb="calendar"] {{
+        background-color: #FFFFFF !important;
+        border-radius: 12px !important;
+        padding: 10px !important;
+    }}
+    
+    /* Destaque para o dia selecionado */
+    div[data-baseweb="calendar"] [aria-selected="true"] {{
+        background-color: #1D61B0 !important;
+        color: #FFFFFF !important;
+        border-radius: 50% !important;
     }}
     
     /* Estilização dos Botões para manter cores vivas e visíveis sempre */
