@@ -123,7 +123,6 @@ st.markdown(
         padding: 10px !important;
     }}
     
-    /* Destaque para o dia selecionado */
     div[data-baseweb="calendar"] [aria-selected="true"] {{
         background-color: #1D61B0 !important;
         color: #FFFFFF !important;
@@ -422,7 +421,7 @@ else:
               st.toast("Alerta removido!", icon="🗑️")
               st.rerun()
 
-    # COLUNA 2: CADASTRAR NOVO ITEM (COM FORMULÁRIO SEGURO PARA LIMPEZA)
+    # COLUNA 2: CADASTRAR NOVO ITEM (COM OPÇÃO DE CÂMERA OU UPLOAD)
     with col2:
       st.markdown("### ➕ 2. Cadastrar Novo Item")
       
@@ -436,9 +435,16 @@ else:
         btn_cadastrar = st.form_submit_button("✅ Cadastrar Objeto no Sistema", use_container_width=True)
 
       st.markdown("---")
-      st.markdown("📸 **Foto do Objeto**")
+      st.markdown("📸 **Foto do Objeto (Câmera ou Upload)**")
 
       foto_b64 = None
+      
+      # Opção de Upload de arquivo do dispositivo
+      arquivo_upload = st.file_uploader("Enviar imagem do dispositivo", type=["jpg", "jpeg", "png"], key="upload_cad")
+      if arquivo_upload:
+        foto_b64 = f"data:image/jpeg;base64,{base64.b64encode(arquivo_upload.getvalue()).decode()}"
+        st.image(arquivo_upload, caption="Pré-visualização do Upload", width=200)
+
       if not st.session_state.ativar_camera_cadastro:
         if st.button("🔓 Ativar Câmera para Fotografar Objeto"):
           st.session_state.ativar_camera_cadastro = True
@@ -452,6 +458,8 @@ else:
         if st.button("🔒 Desativar Câmera de Cadastro"):
           st.session_state.ativar_camera_cadastro = False
           st.rerun()
+
+      st.markdown("---")
 
       if btn_cadastrar:
         if desc_novo.strip():
@@ -483,7 +491,7 @@ else:
         else:
           st.error("Preencha a descrição do item.")
 
-    # COLUNA 3: ANÁLISE E BAIXA DE DEVOLUÇÕES (COM CÂMERA SOB PERMISSÃO)
+    # COLUNA 3: ANÁLISE E BAIXA DE DEVOLUÇÕES (COM CÂMERA OU UPLOAD)
     with col3:
       st.markdown("### 📋 3. Análise de Devoluções")
       pendentes = [
@@ -509,9 +517,15 @@ else:
         doc_rec = st.text_input("Documento (CPF/RG):")
 
         st.markdown("---")
-        st.markdown("📸 **Foto do Recebedor / Documento**")
+        st.markdown("📸 **Foto do Recebedor / Documento (Câmera ou Upload)**")
 
         foto_recebedor_b64 = None
+
+        # Opção de Upload para o recebedor/documento
+        arquivo_upload_rec = st.file_uploader("Enviar documento/foto do dispositivo", type=["jpg", "jpeg", "png"], key="upload_baixa")
+        if arquivo_upload_rec:
+          foto_recebedor_b64 = f"data:image/jpeg;base64,{base64.b64encode(arquivo_upload_rec.getvalue()).decode()}"
+          st.image(arquivo_upload_rec, caption="Pré-visualização do Documento/Recebedor", width=200)
 
         if not st.session_state.ativar_camera_baixa:
           if st.button("🔓 Ativar Câmera para Documento/Recebedor"):
