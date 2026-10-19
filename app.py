@@ -108,7 +108,22 @@ st.markdown(
         font-weight: 600 !important;
     }}
     
-    /* Correção completa dos dias e textos do Pop-up do Calendário */
+    /* Correção do File Uploader (Caixa de Upload de fotos) */
+    div[data-testid="stFileUploader"] {{
+        background-color: #FFFFFF !important;
+        border-radius: 10px !important;
+        padding: 10px !important;
+    }}
+    div[data-testid="stFileUploader"] *, 
+    div[data-testid="stFileUploader"] button, 
+    div[data-testid="stFileUploader"] span, 
+    div[data-testid="stFileUploader"] small,
+    div[data-testid="stFileUploaderDropzone"] * {{
+        color: #1D61B0 !important;
+        font-weight: 700 !important;
+    }}
+    
+    /* Correção do Pop-up do Calendário */
     div[data-baseweb="calendar"], 
     div[data-baseweb="calendar"] *, 
     div[data-baseweb="popover"] *, 
@@ -129,7 +144,7 @@ st.markdown(
         border-radius: 50% !important;
     }}
     
-    /* Estilização dos Botões para manter cores vivas e visíveis sempre */
+    /* Estilização dos Botões principais */
     .stButton>button, div[data-testid="stFormSubmitButton"]>button {{
         background-color: #1D61B0 !important;
         color: #FFFFFF !important;
