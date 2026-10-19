@@ -386,22 +386,19 @@ else:
               st.toast("Alerta removido!", icon="🗑️")
               st.rerun()
 
-    # COLUNA 2: CADASTRAR NOVO ITEM (COM LIMPEZA SEGURA DOS CAMPOS)
+    # COLUNA 2: CADASTRAR NOVO ITEM (COM FORMULÁRIO SEGURO PARA LIMPEZA)
     with col2:
       st.markdown("### ➕ 2. Cadastrar Novo Item")
       
-      desc_novo = st.text_input(
-          "Descrição do Objeto (Obrigatório):",
-          key="input_desc_novo"
-      )
-      linha_nova = st.text_input(
-          "Linha/Ônibus onde foi encontrado (Opcional):",
-          key="input_linha_nova"
-      )
-      local_guarda = st.radio(
-          "Local de Guarda:", ["Vila das Contratadas / Vale", "Garagem Unimar"]
-      )
-      
+      with st.form(key="form_cadastro_item", clear_on_submit=True):
+        desc_novo = st.text_input("Descrição do Objeto (Obrigatório):")
+        linha_nova = st.text_input("Linha/Ônibus onde foi encontrado (Opcional):")
+        local_guarda = st.radio(
+            "Local de Guarda:", ["Vila das Contratadas / Vale", "Garagem Unimar"]
+        )
+        
+        btn_cadastrar = st.form_submit_button("✅ Cadastrar Objeto no Sistema", use_container_width=True)
+
       st.markdown("---")
       st.markdown("📸 **Foto do Objeto**")
 
@@ -420,13 +417,7 @@ else:
           st.session_state.ativar_camera_cadastro = False
           st.rerun()
 
-      st.markdown("---")
-
-      if st.button(
-          "✅ Cadastrar Objeto no Sistema",
-          type="primary",
-          use_container_width=True,
-      ):
+      if btn_cadastrar:
         if desc_novo.strip():
           cod_novo = f"UNI-{random.randint(1000, 9999)}"
           novo_item = {
@@ -442,18 +433,15 @@ else:
           }
           st.session_state.banco_objetos.append(novo_item)
           
-          # Salva os dados de forma permanente no arquivo JSON
+          # Salva permanentemente no JSON
           salvar_dados({
               "banco_objetos": st.session_state.banco_objetos,
               "alertas_perda": st.session_state.alertas_perda,
           })
 
-          # Limpa os campos através dos widgets do session_state sem causar erro
-          st.session_state["input_desc_novo"] = ""
-          st.session_state["input_linha_nova"] = ""
           st.session_state.ativar_camera_cadastro = False
           
-          # Mensagem temporária que surge e desaparece automaticamente
+          # Exibe notificação temporária e atualiza a tela limpando tudo
           st.toast(f"✅ Item {cod_novo} cadastrado com sucesso!", icon="📦")
           st.rerun()
         else:
