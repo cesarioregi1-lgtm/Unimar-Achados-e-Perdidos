@@ -100,7 +100,14 @@ st.markdown(
         font-family: -apple-system, sans-serif !important; color: #FFFFFF !important;
     }}
     h1, h2, h3, .stApp h1, .stApp h2, .stApp h3 {{ color: #4DA8DA !important; font-weight: 700 !important; }}
-    input, textarea, select, div[data-baseweb="select"] div {{ color: #000000 !important; background-color: #FFFFFF !important; }}
+    
+    /* Textos digitados em AZUL nas caixas de input e select */
+    input, textarea, select, div[data-baseweb="select"] span, div[data-baseweb="select"] div {{ 
+        color: #1D61B0 !important; 
+        background-color: #FFFFFF !important; 
+        font-weight: 600 !important;
+    }}
+    
     div[data-testid="stColumn"] > div {{
         background-color: rgba(30, 41, 59, 0.85); border: 1px solid rgba(77, 168, 218, 0.3);
         border-radius: 14px; padding: 20px; backdrop-filter: blur(10px);
@@ -141,6 +148,12 @@ def gerar_qrcode(texto):
 if "admin_logado" not in st.session_state:
   st.session_state.admin_logado = False
 
+# Inicialização dos estados de permissão da câmera
+if "ativar_camera_cadastro" not in st.session_state:
+  st.session_state.ativar_camera_cadastro = False
+if "ativar_camera_baixa" not in st.session_state:
+  st.session_state.ativar_camera_baixa = False
+
 st.sidebar.markdown("### 🚌 Unimar Transportes")
 perfil_acesso = st.sidebar.radio(
     "Modo de Visualização:", ["📱 Tela do Passageiro", "⚙️ Painel do Administrador"]
@@ -153,12 +166,17 @@ if perfil_acesso == "⚙️ Painel do Administrador":
     if st.sidebar.button("Entrar no Painel"):
       if senha == "unimar2026":
         st.session_state.admin_logado = True
+        # Reseta permissões das câmeras ao logar para garantir a segurança
+        st.session_state.ativar_camera_cadastro = False
+        st.session_state.ativar_camera_baixa = False
         st.rerun()
       else:
         st.sidebar.error("Senha incorreta!")
   else:
     if st.sidebar.button("🚪 Sair do Painel"):
       st.session_state.admin_logado = False
+      st.session_state.ativar_camera_cadastro = False
+      st.session_state.ativar_camera_baixa = False
       st.rerun()
 
 # =========================================================
@@ -334,9 +352,23 @@ else:
         ]
         for item in entregues:
           with st.expander(f"✅ {item['codigo']} - {item['descricao']}"):
-            st.write(f"Recebedor: {item['dados_entrega']['nome']}")
-            st.write(f"Documento: {item['dados_entrega']['documento']}")
-            st.write(f"Data/Hora: {item['dados_entrega']['data']}")
+            ent = item.get("dados_entrega", {})
+            st.write(f"👤 **Recebedor:** {ent.get('nome', 'N/A')}")
+            st.write(f"🪪 **Documento:** {ent.get('documento', 'N/A')}")
+            st.write(f"📅 **Data/Hora:** {ent.get('data', 'N/A')}")
+            if ent.get("foto_recebedor"):
+              st.image(
+                  ent["foto_recebedor"],
+                  caption="Foto do Recebedor / Documento",
+                  use_container_width=True,
+              )
+            if st.button("🗑️ Excluir Histórico", key=f"del_ent_{item['codigo']}"):
+              st.session_state.banco_objetos.remove(item)
+              salvar_dados({
+                  "banco_objetos": st.session_state.banco_objetos,
+                  "alertas_perda": st.session_state.alertas_perda,
+              })
+              st.rerun()
 
       else:
         for idx, alt in enumerate(st.session_state.alertas_perda):
@@ -352,7 +384,7 @@ else:
               })
               st.rerun()
 
-    # COLUNA 2: CADASTRAR NOVO ITEM (ENTRADA DO OBJETO)
+    # COLUNA 2: CADASTRAR NOVO ITEM (COM CÂMERA SOB PERMISSÃO)
     with col2:
       st.markdown("### ➕ 2. Cadastrar Novo Item")
       desc_novo = st.text_input("Descrição do Objeto (Obrigatório):")
@@ -362,11 +394,26 @@ else:
       local_guarda = st.radio(
           "Local de Guarda:", ["Vila das Contratadas / Vale", "Garagem Unimar"]
       )
-      foto_captura = st.camera_input("Fotografar Item (Opcional)")
+      
+      st.markdown("---")
+      st.markdown("📸 **Foto do Objeto**")
 
       foto_b64 = None
-      if foto_captura:
-        foto_b64 = f"data:image/jpeg;base64,{base64.b64encode(foto_captura.getvalue()).decode()}"
+      if not st.session_state.ativar_camera_cadastro:
+        if st.button("🔓 Ativar Câmera para Fotografar Objeto"):
+          st.session_state.ativar_camera_cadastro = True
+          st.rerun()
+      else:
+        st.info("Permissão concedida. Câmera pronta para uso.")
+        foto_captura = st.camera_input("Fotografar Item")
+        if foto_captura:
+          foto_b64 = f"data:image/jpeg;base64,{base64.b64encode(foto_captura.getvalue()).decode()}"
+        
+        if st.button("🔒 Desativar Câmera de Cadastro"):
+          st.session_state.ativar_camera_cadastro = False
+          st.rerun()
+
+      st.markdown("---")
 
       if st.button(
           "✅ Cadastrar Objeto no Sistema",
@@ -387,6 +434,8 @@ else:
               "dados_entrega": None,
           }
           st.session_state.banco_objetos.append(novo_item)
+          # Reseta permissão da câmera após o cadastro
+          st.session_state.ativar_camera_cadastro = False
           salvar_dados({
               "banco_objetos": st.session_state.banco_objetos,
               "alertas_perda": st.session_state.alertas_perda,
@@ -396,7 +445,7 @@ else:
         else:
           st.error("Preencha a descrição do item.")
 
-    # COLUNA 3: ANÁLISE E BAIXA DE DEVOLUÇÕES
+    # COLUNA 3: ANÁLISE E BAIXA DE DEVOLUÇÕES (COM CÂMERA SOB PERMISSÃO)
     with col3:
       st.markdown("### 📋 3. Análise de Devoluções")
       pendentes = [
@@ -421,6 +470,27 @@ else:
         nome_rec = st.text_input("Nome do Recebedor:", value=nome_preen)
         doc_rec = st.text_input("Documento (CPF/RG):")
 
+        st.markdown("---")
+        st.markdown("📸 **Foto do Recebedor / Documento**")
+
+        foto_recebedor_b64 = None
+
+        if not st.session_state.ativar_camera_baixa:
+          if st.button("🔓 Ativar Câmera para Documento/Recebedor"):
+            st.session_state.ativar_camera_baixa = True
+            st.rerun()
+        else:
+          st.info("Permissão concedida. Câmera pronta para uso.")
+          foto_rec = st.camera_input("Fotografar Recebedor ou Documento")
+          if foto_rec:
+            foto_recebedor_b64 = f"data:image/jpeg;base64,{base64.b64encode(foto_rec.getvalue()).decode()}"
+          
+          if st.button("🔒 Desativar Câmera de Baixa"):
+            st.session_state.ativar_camera_baixa = False
+            st.rerun()
+
+        st.markdown("---")
+
         if st.button(
             "✅ Confirmar Entrega do Item",
             type="primary",
@@ -432,13 +502,16 @@ else:
                 "nome": nome_rec,
                 "documento": doc_rec,
                 "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+                "foto_recebedor": foto_recebedor_b64,
             }
+            # Reseta permissão da câmera após dar baixa
+            st.session_state.ativar_camera_baixa = False
             salvar_dados({
                 "banco_objetos": st.session_state.banco_objetos,
                 "alertas_perda": st.session_state.alertas_perda,
             })
             st.success(
-                f"Item {cod_sel} baixado e arquivado como Devolvido!"
+                f"Item {cod_sel} baixado, com foto e documentos salvos permanentemente!"
             )
             st.rerun()
           else:
