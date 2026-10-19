@@ -78,7 +78,7 @@ st.markdown(
     <style>
     .block-container {{ padding: 2rem 3rem; }}
     
-    /* Fundo adaptável para qualquer dispositivo (PC, Celular, Tablet) */
+    /* Fundo adaptável para qualquer dispositivo */
     .stApp {{
         background-image: linear-gradient(rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.90)), {bg_img_css};
         background-size: contain;
@@ -101,18 +101,38 @@ st.markdown(
     }}
     h1, h2, h3, .stApp h1, .stApp h2, .stApp h3 {{ color: #4DA8DA !important; font-weight: 700 !important; }}
     
-    /* Textos digitados em AZUL nas caixas de input e select */
+    /* Textos digitados em AZUL bem vivos nas caixas de entrada e botões */
     input, textarea, select, div[data-baseweb="select"] span, div[data-baseweb="select"] div {{ 
         color: #1D61B0 !important; 
         background-color: #FFFFFF !important; 
         font-weight: 600 !important;
     }}
     
+    /* Correção do Pop-up do Calendário para ficar claro e legível */
+    div[data-baseweb="calendar"], div[data-baseweb="popover"], div[role="dialog"] {{
+        background-color: #FFFFFF !important;
+        border-radius: 10px;
+        padding: 10px;
+    }}
+    div[data-baseweb="calendar"] button, div[data-baseweb="calendar"] span, div[data-baseweb="calendar"] div {{
+        color: #0F172A !important;
+        font-weight: 600 !important;
+    }}
+    
+    /* Estilização dos Botões para manter cores vivas e visíveis sempre */
+    .stButton>button, div[data-testid="stFormSubmitButton"]>button {{
+        background-color: #1D61B0 !important;
+        color: #FFFFFF !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        opacity: 1 !important;
+        border: 1px solid #4DA8DA !important;
+    }}
+    
     div[data-testid="stColumn"] > div {{
         background-color: rgba(30, 41, 59, 0.85); border: 1px solid rgba(77, 168, 218, 0.3);
         border-radius: 14px; padding: 20px; backdrop-filter: blur(10px);
     }}
-    .stButton>button {{ background-color: #1D61B0 !important; color: #FFFFFF !important; border-radius: 8px; font-weight: 600; }}
     section[data-testid="stSidebar"] {{ background-color: rgba(15, 23, 42, 0.98) !important; }}
     </style>
 """,
@@ -265,15 +285,17 @@ if perfil_acesso == "📱 Tela do Passageiro":
 
   with col_solicitar:
     st.markdown("### 📢 Não encontrou seu pertence?")
-    with st.form(key="form_alerta"):
+    with st.form(key="form_alerta_perda", clear_on_submit=True):
       obj_p = st.text_input("O que você perdeu?")
       linha_p = st.text_input("Linha/Horário do ônibus:")
       data_p = st.date_input("Data do ocorrido:", datetime.date.today())
       nome_c = st.text_input("Seu Nome:")
       tel_c = st.text_input("Seu Telefone/WhatsApp:")
 
-      if st.form_submit_button("🚀 Cadastrar Alerta de Perda"):
-        if obj_p and tel_c:
+      btn_alerta = st.form_submit_button("🚀 Cadastrar Alerta de Perda", use_container_width=True)
+
+      if btn_alerta:
+        if obj_p.strip() and tel_c.strip():
           st.session_state.alertas_perda.append({
               "id": f"ALT-{random.randint(1000, 9999)}",
               "item": obj_p,
@@ -286,8 +308,10 @@ if perfil_acesso == "📱 Tela do Passageiro":
               "banco_objetos": st.session_state.banco_objetos,
               "alertas_perda": st.session_state.alertas_perda,
           })
-          st.toast("✅ Alerta de perda cadastrado!", icon="📢")
+          st.toast("✅ Alerta registrado com sucesso e enviado ao Administrador!", icon="📢")
           st.rerun()
+        else:
+          st.error("Preencha o que perdeu e o telefone de contato.")
 
 # =========================================================
 # TELA DO ADMINISTRADOR (VISÃO RESTRITA)
@@ -372,11 +396,12 @@ else:
               st.rerun()
 
       else:
+        st.write(f"**Total de Alertas:** {len(st.session_state.alertas_perda)}")
         for idx, alt in enumerate(st.session_state.alertas_perda):
           with st.expander(f"⚠️ {alt['id']} - {alt['item']}"):
-            st.write(
-                f"Contato: {alt['nome']} ({alt['tel']})\nLinha: {alt['linha']}"
-            )
+            st.write(f"👤 **Contato:** {alt['nome']} ({alt['tel']})")
+            st.write(f"🚌 **Linha/Horário:** {alt['linha']}")
+            st.write(f"📅 **Data da Perda:** {alt['data']}")
             if st.button("🗑️ Remover Alerta", key=f"del_alt_{idx}"):
               st.session_state.alertas_perda.pop(idx)
               salvar_dados({
