@@ -154,6 +154,12 @@ if "ativar_camera_cadastro" not in st.session_state:
 if "ativar_camera_baixa" not in st.session_state:
   st.session_state.ativar_camera_baixa = False
 
+# Chaves de controle para limpar campos de cadastro
+if "input_desc_novo" not in st.session_state:
+  st.session_state.input_desc_novo = ""
+if "input_linha_nova" not in st.session_state:
+  st.session_state.input_linha_nova = ""
+
 st.sidebar.markdown("### 🚌 Unimar Transportes")
 perfil_acesso = st.sidebar.radio(
     "Modo de Visualização:", ["📱 Tela do Passageiro", "⚙️ Painel do Administrador"]
@@ -166,7 +172,6 @@ if perfil_acesso == "⚙️ Painel do Administrador":
     if st.sidebar.button("Entrar no Painel"):
       if senha == "unimar2026":
         st.session_state.admin_logado = True
-        # Reseta permissões das câmeras ao logar para garantir a segurança
         st.session_state.ativar_camera_cadastro = False
         st.session_state.ativar_camera_baixa = False
         st.rerun()
@@ -254,9 +259,7 @@ if perfil_acesso == "📱 Tela do Passageiro":
                     "banco_objetos": st.session_state.banco_objetos,
                     "alertas_perda": st.session_state.alertas_perda,
                 })
-                st.success(
-                    "Agendamento solicitado e salvo no sistema Unimar!"
-                )
+                st.toast("✅ Agendamento solicitado com sucesso!", icon="🎉")
                 st.image(
                     gerar_qrcode(f"RETIRADA-{item['codigo']}-{nome_p}"),
                     caption="Apresente este QR Code no local de retirada",
@@ -289,7 +292,7 @@ if perfil_acesso == "📱 Tela do Passageiro":
               "banco_objetos": st.session_state.banco_objetos,
               "alertas_perda": st.session_state.alertas_perda,
           })
-          st.success("Alerta registrado permanentemente no sistema!")
+          st.toast("✅ Alerta de perda cadastrado!", icon="📢")
           st.rerun()
 
 # =========================================================
@@ -323,9 +326,11 @@ else:
         st.write(f"**Total:** {len(pendentes)}")
 
         for item in pendentes:
-          with st.expander(f"📌 {item['codigo']} - {item['descricao']}"):
-            st.write(f"Local: {item['localizacao']}")
-            st.write(f"Status: {item['status']}")
+          label_item = f"📌 {item['codigo']} - {item['descricao']}"
+          with st.expander(label_item):
+            st.write(f"📍 **Local:** {item['localizacao']}")
+            st.write(f"🚌 **Linha:** {item.get('linha', 'Geral')}")
+            st.write(f"📊 **Status:** {item['status']}")
 
             if item.get("dados_agendamento"):
               ag = item["dados_agendamento"]
@@ -344,6 +349,7 @@ else:
                   "banco_objetos": st.session_state.banco_objetos,
                   "alertas_perda": st.session_state.alertas_perda,
               })
+              st.toast("Item excluído com sucesso!", icon="🗑️")
               st.rerun()
 
       elif aba == "Itens Devolvidos":
@@ -368,6 +374,7 @@ else:
                   "banco_objetos": st.session_state.banco_objetos,
                   "alertas_perda": st.session_state.alertas_perda,
               })
+              st.toast("Registro histórico removido!", icon="🗑️")
               st.rerun()
 
       else:
@@ -382,14 +389,20 @@ else:
                   "banco_objetos": st.session_state.banco_objetos,
                   "alertas_perda": st.session_state.alertas_perda,
               })
+              st.toast("Alerta removido!", icon="🗑️")
               st.rerun()
 
-    # COLUNA 2: CADASTRAR NOVO ITEM (COM CÂMERA SOB PERMISSÃO)
+    # COLUNA 2: CADASTRAR NOVO ITEM (COM LIMPEZA AUTOMÁTICA DE CAMPOS)
     with col2:
       st.markdown("### ➕ 2. Cadastrar Novo Item")
-      desc_novo = st.text_input("Descrição do Objeto (Obrigatório):")
+      
+      desc_novo = st.text_input(
+          "Descrição do Objeto (Obrigatório):",
+          key="input_desc_novo"
+      )
       linha_nova = st.text_input(
-          "Linha/Ônibus onde foi encontrado (Opcional):"
+          "Linha/Ônibus onde foi encontrado (Opcional):",
+          key="input_linha_nova"
       )
       local_guarda = st.radio(
           "Local de Guarda:", ["Vila das Contratadas / Vale", "Garagem Unimar"]
@@ -434,13 +447,20 @@ else:
               "dados_entrega": None,
           }
           st.session_state.banco_objetos.append(novo_item)
-          # Reseta permissão da câmera após o cadastro
-          st.session_state.ativar_camera_cadastro = False
+          
+          # Salva os dados de forma permanente no arquivo JSON
           salvar_dados({
               "banco_objetos": st.session_state.banco_objetos,
               "alertas_perda": st.session_state.alertas_perda,
           })
-          st.success(f"Item {cod_novo} salvo permanentemente!")
+
+          # Limpa os campos de digitação e desativa a câmera para o próximo cadastro
+          st.session_state.input_desc_novo = ""
+          st.session_state.input_linha_nova = ""
+          st.session_state.ativar_camera_cadastro = False
+          
+          # Mensagem temporária que surge e desaparece automaticamente
+          st.toast(f"✅ Item {cod_novo} cadastrado com sucesso!", icon="📦")
           st.rerun()
         else:
           st.error("Preencha a descrição do item.")
@@ -504,15 +524,12 @@ else:
                 "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
                 "foto_recebedor": foto_recebedor_b64,
             }
-            # Reseta permissão da câmera após dar baixa
             st.session_state.ativar_camera_baixa = False
             salvar_dados({
                 "banco_objetos": st.session_state.banco_objetos,
                 "alertas_perda": st.session_state.alertas_perda,
             })
-            st.success(
-                f"Item {cod_sel} baixado, com foto e documentos salvos permanentemente!"
-            )
+            st.toast(f"✅ Item {cod_sel} baixado e devolvido com sucesso!", icon="🎉")
             st.rerun()
           else:
             st.error("Preencha nome e documento do recebedor.")
