@@ -4,11 +4,20 @@ from io import BytesIO
 import json
 import os
 import random
-import qrcode
+
 import streamlit as st
 
+# Biblioteca de QR Code (opcional: se não estiver instalada o app continua)
+try:
+  import qrcode
+except ImportError:
+  qrcode = None
+
+# Pasta onde o app.py está - garante caminhos estáveis em qualquer máquina
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Arquivo JSON onde os dados ficam salvos permanentemente
-ARQUIVO_BANCO = "banco_dados.json"
+ARQUIVO_BANCO = os.path.join(BASE_DIR, "banco_dados.json")
 
 
 # ---------------------------------------------------------
@@ -49,6 +58,11 @@ def salvar_dados(dados):
     json.dump(dados, f, ensure_ascii=False, indent=4)
 
 
+# CONFIGURAÇÃO DA PÁGINA (precisa ser o 1º comando Streamlit)
+st.set_page_config(
+    page_title="Unimar - Achados e Perdidos", page_icon="🚌", layout="wide"
+)
+
 # Carrega os dados atualizados do banco no estado da sessão
 dados_globais = carregar_dados()
 st.session_state.banco_objetos = dados_globais.get("banco_objetos", [])
@@ -58,6 +72,16 @@ st.session_state.alertas_perda = dados_globais.get("alertas_perda", [])
 # ---------------------------------------------------------
 # CONFIGURAÇÃO VISUAL & ESTILO CSS RESPONSIVO
 # ---------------------------------------------------------
+def notificar(mensagem, icon="✅"):
+  """Guarda um aviso que será exibido como toast na próxima execução.
+
+  O st.toast() é descartado quando chamamos st.rerun() logo em seguida,
+  por isso a mensagem fica guardada no session_state e é exibida no topo
+  do script, antes de qualquer outra coisa ser desenhada.
+  """
+  st.session_state.flash = {"msg": mensagem, "icon": icon}
+
+
 def get_base64_of_bin_file(bin_file):
   try:
     with open(bin_file, "rb") as f:
@@ -66,22 +90,43 @@ def get_base64_of_bin_file(bin_file):
     return ""
 
 
-bin_str = get_base64_of_bin_file("1001217215.jpg")
+def achar_imagem_de_fundo():
+  """Procura a imagem de fundo do projeto (arquivo opcional)."""
+  nomes = ("1001217215.jpg", "fundo.jpg", "background.jpg")
+  for pasta in (BASE_DIR, os.getcwd()):
+    for nome in nomes:
+      caminho = os.path.join(pasta, nome)
+      if os.path.exists(caminho):
+        return caminho
+  return None
+
+
+caminho_fundo = achar_imagem_de_fundo()
+bin_str = get_base64_of_bin_file(caminho_fundo) if caminho_fundo else ""
 bg_img_css = f'url("data:image/jpeg;base64,{bin_str}")' if bin_str else "none"
 
-st.set_page_config(
-    page_title="Unimar - Achados e Perdidos", page_icon="🚌", layout="wide"
-)
+# Exibe avisos pendentes (toasts) antes de desenhar a tela
+_flash = st.session_state["flash"] if "flash" in st.session_state else None
+if _flash:
+  st.toast(_flash["msg"], icon=_flash.get("icon", "✅"))
+  st.session_state.flash = None
 
 st.markdown(
     f"""
     <style>
+    /* ============ BASE / TIPOGRAFIA ============ */
+    /* A fonte é aplicada somente nos "pais" (html/body/.stApp) para não
+       quebrar os ícones nativos do Streamlit (Material Icons). */
+    html, body, #root, .stApp {{
+        font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;
+    }}
+
     .block-container {{ padding: 2rem 3rem; }}
     
     /* Fundo adaptável para qualquer dispositivo */
     .stApp {{
-        background-image: linear-gradient(rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.90)), {bg_img_css};
-        background-size: contain;
+        background-image: linear-gradient(rgba(15, 23, 42, 0.84), rgba(15, 23, 42, 0.92)), {bg_img_css};
+        background-size: cover;
         background-repeat: no-repeat;
         background-position: center center;
         background-attachment: fixed;
@@ -89,22 +134,47 @@ st.markdown(
         min-height: 100vh;
     }}
 
+    /* ============ RESPONSIVO ============ */
+    @media (max-width: 1100px) {{
+        .block-container {{ padding: 1.5rem 1.5rem !important; }}
+        div[data-testid="stHorizontalBlock"] {{ flex-wrap: wrap !important; }}
+        div[data-testid="stColumn"] {{ width: 100% !important; flex: 1 1 100% !important; }}
+    }}
+
     @media (max-width: 768px) {{
         .stApp {{
             background-size: cover;
             background-position: center top;
+            background-attachment: scroll !important;
         }}
+        .block-container {{ padding: 1rem 0.75rem !important; }}
+        div[data-testid="stColumn"] > div {{ padding: 14px !important; border-radius: 12px !important; }}
+        .stButton>button, div[data-testid="stFormSubmitButton"]>button {{ min-height: 44px; }}
+        h1, .stApp h1 {{ font-size: clamp(1.5rem, 6vw, 2.2rem) !important; }}
+        h2, h3, .stApp h2, .stApp h3 {{ font-size: clamp(1.15rem, 4.6vw, 1.5rem) !important; }}
     }}
 
-    html, body, [class*="css"], div, p, span, label {{
-        font-family: -apple-system, sans-serif !important; color: #FFFFFF !important;
+    @media (max-width: 480px) {{
+        .block-container {{ padding: 0.75rem 0.5rem !important; }}
+        div[data-testid="stColumn"] > div {{ padding: 12px !important; }}
+        [data-testid="stDateInputCalendar"] {{ max-width: calc(100vw - 12px) !important; }}
     }}
-    h1, h2, h3, .stApp h1, .stApp h2, .stApp h3 {{ color: #4DA8DA !important; font-weight: 700 !important; }}
+
+    /* Texto branco padrão (superfícies claras são reestilizadas abaixo) */
+    div, p, span, label, a, li {{ color: #FFFFFF !important; }}
+    h1, h2, h3, h4, .stApp h1, .stApp h2, .stApp h3 {{ color: #4DA8DA !important; font-weight: 700 !important; }}
+
+    /* Cabeçalho do logotipo (tamanhos responsivos) */
+    .unimar-header {{ text-align: center; margin-bottom: 18px; }}
+    .unimar-title {{ color: #4DA8DA !important; font-size: clamp(1.7rem, 5vw, 2.5rem) !important; margin: 0; }}
+    .unimar-sub {{ color: #94A3B8 !important; font-size: clamp(0.8rem, 2.6vw, 1.1rem) !important; letter-spacing: 2px; margin: 0; }}
     
     /* Textos digitados em AZUL nas caixas de entrada e selects */
-    input, textarea, select, div[data-baseweb="select"] span, div[data-baseweb="select"] div {{ 
-        color: #1D61B0 !important; 
-        background-color: #FFFFFF !important; 
+    /* Caixas de entrada brancas com texto azul (design Unimar) */
+    input, textarea, select, div[data-baseweb="select"] span, div[data-baseweb="select"] div,
+    div[data-testid="stDateInputField"], div[data-testid="stDateInputField"] * {{
+        color: #1D61B0 !important;
+        background-color: #FFFFFF !important;
         font-weight: 600 !important;
     }}
     
@@ -123,27 +193,80 @@ st.markdown(
         font-weight: 700 !important;
     }}
     
-    /* Correção do Pop-up do Calendário */
-    div[data-baseweb="calendar"], 
-    div[data-baseweb="calendar"] *, 
-    div[data-baseweb="popover"] *, 
-    div[role="dialog"] * {{
+    /* ============ CALENDÁRIO (Streamlit 1.44+ / Base UI) ============ */
+    /* No Streamlit atual o pop-up usa data-testid="stDateInputCalendar";
+       os seletores antigos (data-baseweb="calendar") não existem mais. */
+    [data-testid="stDateInputCalendar"],
+    [data-testid="stDateInputCalendar"] *,
+    [data-testid="stDateTimeInputCalendar"],
+    [data-testid="stDateTimeInputCalendar"] * {{
         color: #0F172A !important;
-        font-weight: 700 !important;
     }}
-    
-    div[data-baseweb="calendar"] {{
+
+    [data-testid="stDateInputCalendar"],
+    [data-testid="stDateTimeInputCalendar"] {{
         background-color: #FFFFFF !important;
-        border-radius: 12px !important;
+        border: 1px solid rgba(77, 168, 218, 0.45) !important;
+        border-radius: 14px !important;
         padding: 10px !important;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45) !important;
+        z-index: 999999 !important;
     }}
-    
-    div[data-baseweb="calendar"] [aria-selected="true"] {{
+
+    #stFloatingOverlayPortal {{ z-index: 999999 !important; }}
+
+    [data-testid="stDateInputCalendar"] button,
+    [data-testid="stDateInputCalendar"] [role="button"],
+    [data-testid="stDateInputCalendar"] td,
+    [data-testid="stDateInputCalendar"] th {{
+        background-color: transparent !important;
+        border-radius: 8px !important;
+        color: #0F172A !important;
+        font-weight: 600 !important;
+    }}
+
+    [data-testid="stDateInputCalendar"] button:hover,
+    [data-testid="stDateInputCalendar"] [role="button"]:hover {{
+        background-color: #DCEBFA !important;
+    }}
+
+    [data-testid="stDateInputCalendar"] [data-outside-month="true"] {{
+        color: #9AA6B2 !important;
+    }}
+
+    [data-testid="stDateInputCalendar"] [data-today="true"] {{
+        color: #1D61B0 !important;
+        box-shadow: inset 0 0 0 2px #1D61B0 !important;
+    }}
+
+    /* Dia selecionado (por último: vence as regras acima) */
+    [data-testid="stDateInputCalendar"] [data-selected="true"],
+    [data-testid="stDateInputCalendar"] [aria-selected="true"] > [role="button"] {{
         background-color: #1D61B0 !important;
         color: #FFFFFF !important;
-        border-radius: 50% !important;
+        box-shadow: none !important;
     }}
-    
+
+    /* Listas suspensas (selectbox e mês/ano do calendário) */
+    div[role="listbox"],
+    div[role="listbox"] * {{
+        color: #0F172A !important;
+    }}
+
+    div[role="listbox"] {{
+        background-color: #FFFFFF !important;
+        border-radius: 10px !important;
+    }}
+
+    div[role="option"]:hover {{
+        background-color: #DCEBFA !important;
+    }}
+
+    div[role="option"][aria-selected="true"] {{
+        background-color: #1D61B0 !important;
+        color: #FFFFFF !important;
+    }}
+
     /* Estilização dos Botões principais */
     .stButton>button, div[data-testid="stFormSubmitButton"]>button {{
         background-color: #1D61B0 !important;
@@ -153,12 +276,20 @@ st.markdown(
         opacity: 1 !important;
         border: 1px solid #4DA8DA !important;
     }}
+
+    .stButton>button:hover, div[data-testid="stFormSubmitButton"]>button:hover {{
+        background-color: #2E7CC4 !important;
+        border-color: #7FC4E8 !important;
+    }}
     
     div[data-testid="stColumn"] > div {{
         background-color: rgba(30, 41, 59, 0.85); border: 1px solid rgba(77, 168, 218, 0.3);
         border-radius: 14px; padding: 20px; backdrop-filter: blur(10px);
     }}
-    section[data-testid="stSidebar"] {{ background-color: rgba(15, 23, 42, 0.98) !important; }}
+    section[data-testid="stSidebar"] {{
+        background-color: rgba(15, 23, 42, 0.98) !important;
+        border-right: 1px solid rgba(77, 168, 218, 0.25) !important;
+    }}
     </style>
 """,
     unsafe_allow_html=True,
@@ -168,9 +299,9 @@ st.markdown(
 def render_logo_header():
   st.markdown(
       """
-        <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #4DA8DA; font-size: 2.5rem; margin: 0;">🚌 UNIMAR</h1>
-            <p style="color: #94A3B8; font-size: 1.1rem; letter-spacing: 2px; margin: 0;">SISTEMA DE ACHADOS E PERDIDOS</p>
+        <div class="unimar-header">
+            <h1 class="unimar-title">🚌 UNIMAR</h1>
+            <p class="unimar-sub">SISTEMA DE ACHADOS E PERDIDOS</p>
         </div>
     """,
       unsafe_allow_html=True,
@@ -178,6 +309,9 @@ def render_logo_header():
 
 
 def gerar_qrcode(texto):
+  """Gera a imagem do QR Code (retorna None se a lib qrcode faltar)."""
+  if qrcode is None:
+    return None
   qr = qrcode.QRCode(version=1, box_size=10, border=2)
   qr.add_data(texto)
   qr.make(fit=True)
@@ -279,6 +413,23 @@ if perfil_acesso == "📱 Tela do Passageiro":
           st.warning("🟡 Este item já possui um agendamento de retirada.")
           if item.get("dados_agendamento"):
             st.write(f"👤 **Solicitante:** {item['dados_agendamento']['nome']}")
+
+          # QR Code gerado nesta solicitação (sobrevive ao st.rerun)
+          qr_info = st.session_state.get("qr_exibicao")
+          if qr_info and qr_info.get("codigo") == item["codigo"]:
+            if qr_info.get("img"):
+              st.image(
+                  qr_info["img"],
+                  caption="Apresente este QR Code no local de retirada",
+                  width=180,
+              )
+            else:
+              st.code(qr_info.get("texto", ""), language="text")
+            if st.button(
+                "✖️ Fechar QR Code", key=f"fechar_qr_{item['codigo']}"
+            ):
+              st.session_state.qr_exibicao = None
+              st.rerun()
         else:
           with st.form(key=f"form_{item['codigo']}"):
             nome_p = st.text_input("Seu Nome Completo:")
@@ -298,12 +449,14 @@ if perfil_acesso == "📱 Tela do Passageiro":
                     "banco_objetos": st.session_state.banco_objetos,
                     "alertas_perda": st.session_state.alertas_perda,
                 })
-                st.toast("✅ Agendamento solicitado com sucesso!", icon="🎉")
-                st.image(
-                    gerar_qrcode(f"RETIRADA-{item['codigo']}-{nome_p}"),
-                    caption="Apresente este QR Code no local de retirada",
-                    width=180,
-                )
+                # Guarda o QR Code para exibir depois do recarregamento
+                codigo_qr = f"RETIRADA-{item['codigo']}-{nome_p}"
+                st.session_state.qr_exibicao = {
+                    "codigo": item["codigo"],
+                    "texto": codigo_qr,
+                    "img": gerar_qrcode(codigo_qr),
+                }
+                notificar("✅ Agendamento solicitado com sucesso!", "🎉")
                 st.rerun()
               else:
                 st.error("Preencha nome e telefone de contato.")
@@ -333,7 +486,10 @@ if perfil_acesso == "📱 Tela do Passageiro":
               "banco_objetos": st.session_state.banco_objetos,
               "alertas_perda": st.session_state.alertas_perda,
           })
-          st.toast("✅ Alerta registrado com sucesso e enviado ao Administrador!", icon="📢")
+          notificar(
+              "✅ Alerta registrado com sucesso e enviado ao Administrador!",
+              "📢",
+          )
           st.rerun()
         else:
           st.error("Preencha o que perdeu e o telefone de contato.")
@@ -377,11 +533,10 @@ else:
 
             if item.get("dados_agendamento"):
               ag = item["dados_agendamento"]
-              st.info(
-                  f"👤 **Solicitante:** {ag['nome']}\n📞 **Contato:**"
-                  f" {ag['contato']}\n📝 **Detalhes:**"
-                  f" {ag.get('detalhes', 'N/A')}\n📅 **Data:** {ag.get('data')}"
-              )
+              st.info(f"👤 **Solicitante:** {ag['nome']}")
+              st.write(f"📞 **Contato:** {ag.get('contato', 'N/A')}")
+              st.write(f"📝 **Detalhes:** {ag.get('detalhes', 'N/A')}")
+              st.write(f"📅 **Data:** {ag.get('data', 'N/A')}")
 
             if item.get("foto_item"):
               st.image(item["foto_item"], use_container_width=True)
@@ -392,7 +547,7 @@ else:
                   "banco_objetos": st.session_state.banco_objetos,
                   "alertas_perda": st.session_state.alertas_perda,
               })
-              st.toast("Item excluído com sucesso!", icon="🗑️")
+              notificar("Item excluído com sucesso!", "🗑️")
               st.rerun()
 
       elif aba == "Itens Devolvidos":
@@ -417,7 +572,7 @@ else:
                   "banco_objetos": st.session_state.banco_objetos,
                   "alertas_perda": st.session_state.alertas_perda,
               })
-              st.toast("Registro histórico removido!", icon="🗑️")
+              notificar("Registro histórico removido!", "🗑️")
               st.rerun()
 
       else:
@@ -433,7 +588,7 @@ else:
                   "banco_objetos": st.session_state.banco_objetos,
                   "alertas_perda": st.session_state.alertas_perda,
               })
-              st.toast("Alerta removido!", icon="🗑️")
+              notificar("Alerta removido!", "🗑️")
               st.rerun()
 
     # COLUNA 2: CADASTRAR NOVO ITEM (COM OPÇÃO DE CÂMERA OU UPLOAD)
@@ -501,12 +656,11 @@ else:
           st.session_state.ativar_camera_cadastro = False
           
           # Exibe notificação temporária e atualiza a tela limpando tudo
-          st.toast(f"✅ Item {cod_novo} cadastrado com sucesso!", icon="📦")
+          notificar(f"✅ Item {cod_novo} cadastrado com sucesso!", "📦")
           st.rerun()
         else:
           st.error("Preencha a descrição do item.")
-
-    # COLUNA 3: ANÁLISE E BAIXA DE DEVOLUÇÕES (COM CÂMERA OU UPLOAD)
+# COLUNA 3: ANÁLISE E BAIXA DE DEVOLUÇÕES (COM CÂMERA OU UPLOAD)
     with col3:
       st.markdown("### 📋 3. Análise de Devoluções")
       pendentes = [
@@ -576,7 +730,7 @@ else:
                 "banco_objetos": st.session_state.banco_objetos,
                 "alertas_perda": st.session_state.alertas_perda,
             })
-            st.toast(f"✅ Item {cod_sel} baixado e devolvido com sucesso!", icon="🎉")
+            notificar(f"✅ Item {cod_sel} baixado e devolvido com sucesso!", "🎉")
             st.rerun()
           else:
             st.error("Preencha nome e documento do recebedor.")
